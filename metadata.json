@@ -1,0 +1,5 @@
+{
+  "name": "Overstock Guard - Minimalist Inventory",
+  "description": "A personal inventory and expiry tracker using local-first storage and a traffic-light status system to minimize waste.",
+  "requestFramePermissions": []
+}
