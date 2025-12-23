@@ -1,5 +1,5 @@
 {
-  "name": "overstock-guard---minimalist-inventory",
+  "name": "kitchen-guard",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -11,7 +11,6 @@
   "dependencies": {
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "@google/genai": "^1.34.0",
     "@heroicons/react": "^2.2.0",
     "idb-keyval": "6.2.1"
   },

@@ -21,7 +21,7 @@ const InventoryView: React.FC<Props> = ({ items, onUpdate }) => {
   };
 
   const deleteItem = async (id: string) => {
-    if (confirm('Remove item from stock?')) {
+    if (confirm('Delete this record?')) {
       await db.deleteItem(id);
       onUpdate();
     }
@@ -29,86 +29,76 @@ const InventoryView: React.FC<Props> = ({ items, onUpdate }) => {
 
   if (items.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-center opacity-40 py-20">
-        <div className="w-20 h-20 bg-slate-100 rounded-full mb-4 flex items-center justify-center">
-          <ArchiveBoxIcon className="w-10 h-10" />
+      <div className="h-[60vh] flex flex-col items-center justify-center text-center px-10">
+        <div className="w-24 h-24 bg-slate-50 rounded-full mb-6 flex items-center justify-center border-2 border-slate-100 border-dashed">
+          <ArchiveBoxIcon className="w-10 h-10 text-slate-200" />
         </div>
-        <p className="text-lg font-medium">Your pantry is empty</p>
-        <p className="text-sm">Tap '+' to track your first item</p>
+        <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2 uppercase">Stock is Empty</h3>
+        <p className="text-xs text-slate-400 font-bold uppercase tracking-widest leading-loose">Tap the '+' button below to start tracking.</p>
       </div>
     );
   }
 
-  // Grouping logic
   const itemsByCategory = CATEGORIES.reduce((acc, cat) => {
-    const catItems = items
-      .filter(i => i.category === cat.id)
-      .sort((a, b) => {
-        const order = { RED: 0, YELLOW: 1, GREEN: 2 };
-        return order[calculateStatus(a)] - order[calculateStatus(b)];
-      });
-    
-    if (catItems.length > 0) {
-      acc[cat.id] = catItems;
-    }
+    const catItems = items.filter(i => i.category === cat.id);
+    if (catItems.length > 0) acc[cat.id] = catItems;
     return acc;
   }, {} as Record<string, InventoryItem[]>);
 
-  const uncategorized = items.filter(i => !CATEGORIES.find(c => c.id === i.category));
-  if (uncategorized.length > 0) {
-    itemsByCategory['other'] = uncategorized;
-  }
-
   return (
-    <div className="space-y-8 pt-2">
+    <div className="space-y-10 pb-12">
       {Object.entries(itemsByCategory).map(([catId, catItems]) => {
-        const category = CATEGORIES.find(c => c.id === catId) || { name: 'Other', icon: '📦' };
-        
+        const category = CATEGORIES.find(c => c.id === catId)!;
         return (
-          <section key={catId} className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                <span>{category.icon}</span>
-                {category.name}
-                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                  {catItems.length}
-                </span>
-              </h2>
+          <section key={catId} className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{category.icon}</span>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">{category.name}</h2>
+              <div className="flex-1 h-px bg-slate-100 ml-2" />
             </div>
 
-            <div className="space-y-3">
+            <div className="grid gap-3">
               {catItems.map(item => {
                 const status = calculateStatus(item);
                 const color = getStatusColor(status);
                 const isExpired = item.expiryDate && new Date(item.expiryDate) < new Date();
 
                 return (
-                  <div key={item.id} className="bg-white border border-slate-100 shadow-sm rounded-2xl p-4 flex items-center gap-4 transition-all active:scale-[0.98]">
-                    <div className={`w-1.5 h-10 rounded-full ${color} shrink-0`} />
-
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-slate-900 leading-tight truncate">{item.name}</h3>
-                      {item.expiryDate ? (
-                        <p className={`text-[10px] font-bold mt-0.5 flex items-center gap-1 ${isExpired ? 'text-red-500' : 'text-slate-400'}`}>
-                          <CalendarIcon className="w-3 h-3" />
-                          {isExpired ? 'EXPIRED' : `EXP: ${new Date(item.expiryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
-                        </p>
-                      ) : (
-                        <p className="text-[10px] font-bold mt-0.5 text-slate-300 uppercase tracking-tighter">No expiry set</p>
-                      )}
+                  <div key={item.id} className="relative group overflow-hidden bg-white border border-slate-100 rounded-3xl p-4 flex items-center gap-4 transition-all hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]">
+                    {/* Status Ribbon */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${color}`} />
+                    
+                    <div className="flex-1 min-w-0 ml-1">
+                      <h3 className="font-black text-slate-900 text-lg leading-tight truncate uppercase tracking-tighter">
+                        {item.name}
+                      </h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        {item.expiryDate ? (
+                          <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${isExpired ? 'bg-red-50 text-red-500' : 'bg-slate-50 text-slate-400'}`}>
+                            <CalendarIcon className="w-3 h-3" />
+                            {new Date(item.expiryDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </div>
+                        ) : (
+                          <span className="text-[9px] font-black text-slate-200 uppercase">Perpetual</span>
+                        )}
+                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Par: {item.parLevel}</span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-1.5 py-1 rounded-xl">
+                    {/* Quantity Controls */}
+                    <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-2xl border border-slate-100">
                       <button 
-                        onClick={(e) => { e.stopPropagation(); adjustQty(item.id, -1); }}
-                        className="p-1 hover:text-red-600 transition-colors"
+                        onClick={() => adjustQty(item.id, -1)}
+                        className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
                       >
                         <MinusIcon className="w-4 h-4" />
                       </button>
-                      <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
+                      <div className="w-8 text-center">
+                        <span className="text-sm font-black text-slate-900">{item.quantity}</span>
+                      </div>
                       <button 
-                        onClick={(e) => { e.stopPropagation(); adjustQty(item.id, 1); }}
-                        className="p-1 hover:text-emerald-600 transition-colors"
+                        onClick={() => adjustQty(item.id, 1)}
+                        className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-emerald-500 transition-colors"
                       >
                         <PlusIcon className="w-4 h-4" />
                       </button>
@@ -116,9 +106,9 @@ const InventoryView: React.FC<Props> = ({ items, onUpdate }) => {
 
                     <button 
                       onClick={() => deleteItem(item.id)}
-                      className="text-slate-200 hover:text-red-400 p-1"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-slate-200 hover:text-red-400"
                     >
-                      <TrashIcon className="w-4 h-4" />
+                      <TrashIcon className="w-5 h-5" />
                     </button>
                   </div>
                 );
