@@ -5,12 +5,13 @@ export const ItemStatus = {
   GREEN: 'GREEN'
 };
 
+// Added SyncStatus to fix missing export error in JS version
 export const SyncStatus = {
+  DISCONNECTED: 'DISCONNECTED',
   IDLE: 'IDLE',
   SYNCING: 'SYNCING',
   SUCCESS: 'SUCCESS',
-  ERROR: 'ERROR',
-  DISCONNECTED: 'DISCONNECTED'
+  ERROR: 'ERROR'
 };
 
 export const CATEGORIES = [

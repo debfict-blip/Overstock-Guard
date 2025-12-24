@@ -9,7 +9,8 @@ import {
   UserCircleIcon,
   KeyIcon,
   CheckIcon,
-  QuestionMarkCircleIcon
+  QuestionMarkCircleIcon,
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 
 interface Props {
@@ -66,9 +67,19 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
   return (
     <div className="space-y-6 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
       
+      {/* Security Warning Banner */}
+      <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
+        <ShieldCheckIcon className="absolute right-[-20px] top-[-20px] w-48 h-48 opacity-10 rotate-12" />
+        <h2 className="text-xl font-black uppercase tracking-widest mb-2 italic">Data Security</h2>
+        <p className="text-xs text-slate-400 font-medium leading-relaxed">
+          Your inventory is saved locally on this device. **Warning:** Your data will be permanently lost if you clear your browser history/data or delete this page from your device. 
+          Use the manual backup tools below to keep your data safe.
+        </p>
+      </div>
+
       {/* Configuration Section (Required for Google Sync) */}
-      <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl border border-slate-800">
-        <h3 className="font-black uppercase tracking-widest text-[10px] mb-4 flex items-center gap-2 opacity-50">
+      <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
+        <h3 className="font-black uppercase tracking-widest text-[10px] mb-4 flex items-center gap-2 text-slate-400">
           <KeyIcon className="w-4 h-4" />
           Sync Configuration
         </h3>
@@ -82,12 +93,12 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 placeholder="00000000-xxxx.apps.googleusercontent.com"
-                className="flex-1 bg-slate-800 border-none rounded-xl px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none text-blue-200"
+                className="flex-1 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-slate-900/5 outline-none text-slate-900"
               />
               <button 
                 onClick={saveConfig}
                 disabled={isSaving}
-                className="bg-blue-600 p-3 rounded-xl hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-50"
+                className="bg-slate-900 p-3 rounded-xl hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-50 text-white"
               >
                 {showSaved ? <CheckIcon className="w-5 h-5" /> : <ArrowDownTrayIcon className="w-5 h-5" />}
               </button>
@@ -98,7 +109,7 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
             href="https://console.cloud.google.com/apis/credentials" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors"
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-500 transition-colors"
           >
             <QuestionMarkCircleIcon className="w-4 h-4" />
             How to create a Client ID?
@@ -107,7 +118,7 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
       </div>
 
       {/* Cloud Sync Section */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+      <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
         <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs mb-4 flex items-center gap-2">
           <CloudArrowUpIcon className="w-4 h-4" />
           Google Drive Sync
@@ -158,7 +169,7 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
       </div>
 
       {/* Manual Export Section */}
-      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+      <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
         <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs mb-4">Manual Backup</h3>
         <p className="text-sm text-slate-500 mb-6 leading-relaxed">
           Export your local inventory to a JSON file for manual storage.
@@ -167,7 +178,7 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
         <div className="space-y-3">
           <button 
             onClick={exportToJson}
-            className="w-full flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 hover:border-slate-400 transition-colors font-bold text-slate-900 group"
+            className="w-full flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:border-slate-300 transition-colors font-bold text-slate-900 group"
           >
             <div className="flex items-center gap-3">
               <ArrowDownTrayIcon className="w-5 h-5 text-slate-400 group-hover:text-slate-900" />
@@ -178,7 +189,7 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
 
           <button 
             onClick={shareData}
-            className="w-full flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 hover:border-slate-400 transition-colors font-bold text-slate-900 group"
+            className="w-full flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:border-slate-300 transition-colors font-bold text-slate-900 group"
           >
             <div className="flex items-center gap-3">
               <ShareIcon className="w-5 h-5 text-slate-400 group-hover:text-slate-900" />

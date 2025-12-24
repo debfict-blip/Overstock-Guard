@@ -5,12 +5,13 @@ export enum ItemStatus {
   GREEN = 'GREEN'
 }
 
+// Added SyncStatus enum to fix missing export error
 export enum SyncStatus {
+  DISCONNECTED = 'DISCONNECTED',
   IDLE = 'IDLE',
   SYNCING = 'SYNCING',
   SUCCESS = 'SUCCESS',
-  ERROR = 'ERROR',
-  DISCONNECTED = 'DISCONNECTED'
+  ERROR = 'ERROR'
 }
 
 export interface InventoryItem {

@@ -2,7 +2,6 @@
 import { get, set } from 'idb-keyval';
 
 const STORAGE_KEY = 'kitchen_guard_inventory_idb';
-const CONFIG_KEY = 'kitchen_guard_config';
 
 export const db = {
   getItems: async () => {
@@ -33,13 +32,14 @@ export const db = {
     await db.saveItems(items.filter(i => i.id !== id));
   },
 
+  // Fix: Added getClientId to support sync configuration in JS version
   getClientId: async () => {
-    const config = await get(CONFIG_KEY);
-    return config?.googleClientId || null;
+    const id = await get('kitchen_guard_client_id');
+    return id || null;
   },
 
+  // Fix: Added saveClientId to support sync configuration in JS version
   saveClientId: async (id) => {
-    const config = (await get(CONFIG_KEY)) || {};
-    await set(CONFIG_KEY, { ...config, googleClientId: id });
+    await set('kitchen_guard_client_id', id);
   }
 };

@@ -97,7 +97,7 @@ const App = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tighter text-slate-900 uppercase italic leading-none">Guard</h1>
+                <h1 className="text-2xl font-black tracking-tighter text-slate-900 uppercase italic leading-none">Overstock Guard</h1>
                 {getSyncIcon()}
               </div>
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">Kitchen Inventory</p>

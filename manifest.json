@@ -1,7 +1,7 @@
 
 {
-  "name": "Kitchen Guard Inventory",
-  "short_name": "KitchenGuard",
+  "name": "Overstock Guard",
+  "short_name": "OverstockGuard",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
