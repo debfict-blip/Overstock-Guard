@@ -43,9 +43,14 @@
 </head>
 <body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
+    
+    <!-- CRITICAL: This script tag loads the application -->
+    <script type="module" src="index.tsx"></script>
+
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
+          // Use relative path for GitHub Pages subfolder support
           navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
         });
       }

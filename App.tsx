@@ -166,7 +166,7 @@ const App: React.FC = () => {
     switch (activeView) {
       case 'inventory': return <InventoryView items={items} onUpdate={refreshItems} />;
       case 'add': return <AddItemView onAdded={() => { refreshItems(); setActiveView('inventory'); triggerSync(); }} />;
-      case 'shopping': return <ShoppingListView items={items} />;
+      case 'shopping': return <ShoppingListView items={items} onUpdate={refreshItems} />;
       case 'settings': return <SettingsView items={items} syncStatus={syncStatus} onSync={triggerSync} onSignIn={() => SyncService.signIn()} />;
       default: return <InventoryView items={items} onUpdate={refreshItems} />;
     }

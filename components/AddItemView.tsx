@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { db } from '../db';
 import { CATEGORIES } from '../types';
-import { CalendarIcon, NoSymbolIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, NoSymbolIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 interface Props {
   onAdded: () => void;
@@ -53,22 +53,21 @@ const AddItemView: React.FC<Props> = ({ onAdded }) => {
 
         <div>
           <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Category</label>
-          <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setCategory(cat.id)}
-                className={`flex-none px-4 py-2.5 rounded-2xl text-sm font-bold border-2 transition-all flex items-center gap-2 ${
-                  category === cat.id 
-                    ? 'bg-slate-900 border-slate-900 text-white shadow-md' 
-                    : 'bg-white border-slate-100 text-slate-500 hover:border-slate-200'
-                }`}
-              >
-                <span>{cat.icon}</span>
-                {cat.name}
-              </button>
-            ))}
+          <div className="relative">
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              className="w-full appearance-none bg-slate-50 border border-slate-100 p-4 rounded-3xl text-lg font-bold text-slate-900 focus:ring-2 focus:ring-slate-900/5 outline-none transition-all"
+            >
+              {CATEGORIES.map(cat => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.icon} {cat.name}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <ChevronDownIcon className="w-5 h-5" />
+            </div>
           </div>
         </div>
 

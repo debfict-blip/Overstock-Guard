@@ -2,21 +2,45 @@
 import React, { useState } from 'react';
 import { InventoryItem, ItemStatus } from '../types';
 import { calculateStatus } from '../statusUtils';
-import { CheckBadgeIcon } from '@heroicons/react/24/solid';
+import { db } from '../db';
+import { CheckBadgeIcon, ShoppingBagIcon } from '@heroicons/react/24/solid';
 import { ArchiveBoxArrowDownIcon } from '@heroicons/react/24/outline';
 
 interface Props {
   items: InventoryItem[];
+  onUpdate: () => void;
 }
 
-const ShoppingListView: React.FC<Props> = ({ items }) => {
+const ShoppingListView: React.FC<Props> = ({ items, onUpdate }) => {
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const toggleCheck = (id: string) => {
     const newChecked = new Set(checked);
     if (newChecked.has(id)) newChecked.delete(id);
     else newChecked.add(id);
     setChecked(newChecked);
+  };
+
+  const handleRestock = async () => {
+    if (checked.size === 0 || isProcessing) return;
+    
+    setIsProcessing(true);
+    try {
+      for (const id of checked) {
+        const item = items.find(i => i.id === id);
+        if (item) {
+          // Update quantity to par level
+          await db.updateItem(id, { quantity: item.parLevel });
+        }
+      }
+      setChecked(new Set());
+      onUpdate();
+    } catch (err) {
+      console.error("Restock failed", err);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const needsRestock = items.filter(item => {
@@ -50,7 +74,7 @@ const ShoppingListView: React.FC<Props> = ({ items }) => {
         </p>
       </div>
       
-      <div className="bg-white rounded-[2rem] border border-slate-100 divide-y divide-slate-50 overflow-hidden">
+      <div className="bg-white rounded-[2rem] border border-slate-100 divide-y divide-slate-50 overflow-hidden shadow-sm">
         {needsRestock.map(item => {
           const status = calculateStatus(item);
           const isChecked = checked.has(item.id);
@@ -60,7 +84,7 @@ const ShoppingListView: React.FC<Props> = ({ items }) => {
             <div 
               key={item.id} 
               onClick={() => toggleCheck(item.id)}
-              className={`flex items-center gap-4 p-5 transition-all cursor-pointer ${isChecked ? 'bg-slate-50/50 grayscale' : 'hover:bg-slate-50'}`}
+              className={`flex items-center gap-4 p-5 transition-all cursor-pointer ${isChecked ? 'bg-slate-50/50 grayscale opacity-60' : 'hover:bg-slate-50'}`}
             >
               <div className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all ${
                 isChecked ? 'bg-slate-900 border-slate-900' : 'border-slate-200'
@@ -93,14 +117,23 @@ const ShoppingListView: React.FC<Props> = ({ items }) => {
       </div>
 
       {checked.size > 0 && (
-        <button 
-          onClick={() => {
-            if(confirm('Clear checked items? (Note: This currently only visual)')) setChecked(new Set());
-          }}
-          className="w-full py-5 rounded-3xl bg-slate-50 text-slate-400 font-black text-xs uppercase tracking-[0.3em] hover:bg-slate-100 transition-colors"
-        >
-          Clear Checked ({checked.size})
-        </button>
+        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
+          <button 
+            onClick={handleRestock}
+            disabled={isProcessing}
+            className="w-full py-6 rounded-3xl bg-emerald-500 text-white font-black text-lg uppercase tracking-tighter shadow-lg hover:bg-emerald-600 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+          >
+            <ShoppingBagIcon className="w-6 h-6" />
+            {isProcessing ? 'Updating Stock...' : `Buy Checked (${checked.size})`}
+          </button>
+          
+          <button 
+            onClick={() => setChecked(new Set())}
+            className="w-full py-4 rounded-3xl bg-slate-50 text-slate-400 font-black text-xs uppercase tracking-[0.3em] hover:bg-slate-100 transition-colors"
+          >
+            Clear Selection
+          </button>
+        </div>
       )}
     </div>
   );
