@@ -1,5 +1,5 @@
 {
-  "name": "kitchen-guard",
+  "name": "overstock-guard",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "react": "^19.2.3",
+    "idb-keyval": "6.2.1",
     "react-dom": "^19.2.3",
-    "@heroicons/react": "^2.2.0",
-    "idb-keyval": "6.2.1"
+    "@heroicons/react": "^2.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
