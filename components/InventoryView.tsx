@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { InventoryItem, CATEGORIES } from '../types';
-import { db } from '../db';
-import { calculateStatus, getStatusColor } from '../statusUtils';
+import { InventoryItem, CATEGORIES } from '../types.ts';
+import { db } from '../db.ts';
+import { calculateStatus, getStatusColor } from '../statusUtils.ts';
 import { MinusIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 import { ArchiveBoxIcon, CalendarIcon } from '@heroicons/react/24/outline';
 

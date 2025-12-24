@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { InventoryItem, ItemStatus } from '../types';
-import { calculateStatus } from '../statusUtils';
-import { db } from '../db';
+import { InventoryItem, ItemStatus } from '../types.ts';
+import { calculateStatus } from '../statusUtils.ts';
+import { db } from '../db.ts';
 import { CheckBadgeIcon, ShoppingBagIcon } from '@heroicons/react/24/solid';
 import { ArchiveBoxArrowDownIcon } from '@heroicons/react/24/outline';
 

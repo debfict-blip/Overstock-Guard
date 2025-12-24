@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { InventoryItem, SyncStatus } from '../types';
-import { db } from '../db';
+import { InventoryItem, SyncStatus } from '../types.ts';
+import { db } from '../db.ts';
 import { 
   ArrowDownTrayIcon, 
   ShareIcon, 

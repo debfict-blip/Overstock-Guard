@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { db } from '../db';
-import { CATEGORIES } from '../types';
+import { db } from '../db.ts';
+import { CATEGORIES } from '../types.ts';
 import { CalendarIcon, NoSymbolIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 interface Props {

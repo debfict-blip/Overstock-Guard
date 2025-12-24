@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ViewType, InventoryItem, SyncStatus, ItemStatus } from './types';
-import { db } from './db';
-import { SyncService } from './services/syncService';
-import { calculateStatus } from './statusUtils';
-import InventoryView from './components/InventoryView';
-import AddItemView from './components/AddItemView';
-import ShoppingListView from './components/ShoppingListView';
-import SettingsView from './components/SettingsView';
+import { ViewType, InventoryItem, SyncStatus, ItemStatus } from './types.ts';
+import { db } from './db.ts';
+import { SyncService } from './services/syncService.ts';
+import { calculateStatus } from './statusUtils.ts';
+import InventoryView from './components/InventoryView.tsx';
+import AddItemView from './components/AddItemView.tsx';
+import ShoppingListView from './components/ShoppingListView.tsx';
+import SettingsView from './components/SettingsView.tsx';
 import { 
   ArchiveBoxIcon, 
   PlusCircleIcon, 

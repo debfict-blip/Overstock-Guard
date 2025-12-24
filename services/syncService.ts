@@ -1,6 +1,6 @@
 
-import { InventoryItem } from '../types';
-import { db } from '../db';
+import { InventoryItem } from '../types.ts';
+import { db } from '../db.ts';
 
 const FILE_NAME = 'stock_data_v2.json';
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
