@@ -1,10 +1,10 @@
 
-const CACHE_NAME = 'kitchen-guard-v1.1';
+const CACHE_NAME = 'kitchen-guard-v2.0';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './index.tsx'
+  './main.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -12,9 +12,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.all(
-        ASSETS.map(url => {
-          return cache.add(url).catch(err => console.warn('Failed to cache during install:', url));
-        })
+        ASSETS.map(url => cache.add(url).catch(err => console.warn('Cache skip:', url)))
       );
     })
   );
@@ -22,23 +20,14 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    caches.keys().then((keys) => Promise.all(
+      keys.map(key => key !== CACHE_NAME ? caches.delete(key) : null)
+    ))
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network first strategy for the main logic to ensure updates on GitHub Pages
   event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });

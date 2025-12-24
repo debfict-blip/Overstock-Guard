@@ -9,7 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.3",
+    "react": "19.0.0",
+    "lucide-react": "0.454.0",
     "idb-keyval": "6.2.1",
     "react-dom": "^19.2.3",
     "@heroicons/react": "^2.2.0"
