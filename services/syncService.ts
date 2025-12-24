@@ -5,16 +5,15 @@ import { db } from '../db';
 const FILE_NAME = 'stock_data_v2.json';
 const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 
-// Note: For personal GitHub Pages use, you must configure your own Client ID in GCP Console.
-const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
-
 export class SyncService {
   private static accessToken: string | null = null;
   private static client: any = null;
 
   static async initialize(onToken: (token: string) => void) {
-    if (CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
-      console.warn("Sync Service: Google Client ID not configured. Sync will be disabled.");
+    const clientId = await db.getClientId();
+    
+    if (!clientId) {
+      console.warn("Sync Service: Google Client ID not found in database. Sync disabled.");
       return;
     }
     
@@ -24,26 +23,38 @@ export class SyncService {
         console.error("GSI Client not loaded");
         return resolve(false);
       }
-      // @ts-ignore
-      this.client = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: (response: any) => {
-          if (response.access_token) {
-            this.accessToken = response.access_token;
-            onToken(response.access_token);
-            resolve(true);
-          }
-        },
-      });
+      
+      try {
+        // @ts-ignore
+        this.client = google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: SCOPES,
+          callback: (response: any) => {
+            if (response.access_token) {
+              this.accessToken = response.access_token;
+              onToken(response.access_token);
+              resolve(true);
+            }
+          },
+        });
+      } catch (err) {
+        console.error("GSI Init Error:", err);
+        resolve(false);
+      }
     });
   }
 
-  static signIn() {
+  static async signIn() {
     if (this.client) {
       this.client.requestAccessToken();
     } else {
-      alert("Please configure your Google Client ID in services/syncService.ts to use Cloud Sync.");
+      // Re-run initialization in case they just added a key
+      await this.initialize(() => {});
+      if (this.client) {
+        this.client.requestAccessToken();
+      } else {
+        alert("Please enter your Google Client ID in Settings > Sync Configuration first.");
+      }
     }
   }
 
@@ -66,7 +77,6 @@ export class SyncService {
         );
         const remoteItems: InventoryItem[] = await getResponse.json();
 
-        // Newest lastModified wins merge
         const mergedMap = new Map<string, InventoryItem>();
         [...remoteItems, ...localItems].forEach(item => {
           const existing = mergedMap.get(item.id);

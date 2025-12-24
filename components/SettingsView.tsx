@@ -1,11 +1,15 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { InventoryItem, SyncStatus } from '../types';
+import { db } from '../db';
 import { 
   ArrowDownTrayIcon, 
   ShareIcon, 
   CloudArrowUpIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  KeyIcon,
+  CheckIcon,
+  QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline';
 
 interface Props {
@@ -16,12 +20,28 @@ interface Props {
 }
 
 const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) => {
+  const [clientId, setClientId] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+
+  useEffect(() => {
+    db.getClientId().then(id => {
+      if (id) setClientId(id);
+    });
+  }, []);
+
+  const saveConfig = async () => {
+    setIsSaving(true);
+    await db.saveClientId(clientId);
+    setIsSaving(false);
+    setShowSaved(true);
+    setTimeout(() => setShowSaved(false), 2000);
+  };
+
   const exportToJson = () => {
     const dataStr = JSON.stringify(items, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    
     const exportFileDefaultName = `kitchen-guard-backup-${new Date().toISOString().split('T')[0]}.json`;
-    
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
@@ -45,6 +65,47 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
 
   return (
     <div className="space-y-6 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      
+      {/* Configuration Section (Required for Google Sync) */}
+      <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl border border-slate-800">
+        <h3 className="font-black uppercase tracking-widest text-[10px] mb-4 flex items-center gap-2 opacity-50">
+          <KeyIcon className="w-4 h-4" />
+          Sync Configuration
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[9px] font-black uppercase tracking-widest mb-2 opacity-40">Google OAuth Client ID</label>
+            <div className="flex gap-2">
+              <input 
+                type="password"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                placeholder="00000000-xxxx.apps.googleusercontent.com"
+                className="flex-1 bg-slate-800 border-none rounded-xl px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none text-blue-200"
+              />
+              <button 
+                onClick={saveConfig}
+                disabled={isSaving}
+                className="bg-blue-600 p-3 rounded-xl hover:bg-blue-500 active:scale-95 transition-all disabled:opacity-50"
+              >
+                {showSaved ? <CheckIcon className="w-5 h-5" /> : <ArrowDownTrayIcon className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+          
+          <a 
+            href="https://console.cloud.google.com/apis/credentials" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            <QuestionMarkCircleIcon className="w-4 h-4" />
+            How to create a Client ID?
+          </a>
+        </div>
+      </div>
+
       {/* Cloud Sync Section */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
         <h3 className="font-black text-slate-900 uppercase tracking-widest text-xs mb-4 flex items-center gap-2">
@@ -59,11 +120,13 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
             </p>
             <button 
               onClick={onSignIn}
-              className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              disabled={!clientId}
+              className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-30 disabled:grayscale"
             >
               <UserCircleIcon className="w-6 h-6" />
               Sign in with Google
             </button>
+            {!clientId && <p className="text-[9px] font-black uppercase text-red-400 mt-4 tracking-widest">Enter Client ID Above First</p>}
           </div>
         ) : (
           <div className="space-y-4">
@@ -125,17 +188,8 @@ const SettingsView: React.FC<Props> = ({ items, syncStatus, onSync, onSignIn }) 
         </div>
       </div>
 
-      <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100">
-        <h3 className="font-black text-blue-900 uppercase tracking-widest text-xs mb-2 text-center">Cloud Privacy</h3>
-        <p className="text-[10px] text-blue-700 leading-relaxed text-center">
-          Kitchen Guard uses the <span className="font-bold">AppData</span> folder. 
-          This means your inventory file is hidden from your main Drive view 
-          and only accessible by this application.
-        </p>
-      </div>
-
       <div className="text-center pt-8 opacity-20">
-        <p className="text-[10px] font-black uppercase tracking-widest">Kitchen Guard v1.1.0</p>
+        <p className="text-[10px] font-black uppercase tracking-widest">Kitchen Guard v1.2.0</p>
       </div>
     </div>
   );

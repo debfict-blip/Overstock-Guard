@@ -3,6 +3,7 @@ import { get, set } from 'idb-keyval';
 import { InventoryItem } from './types';
 
 const STORAGE_KEY = 'kitchen_guard_inventory_idb';
+const CONFIG_KEY = 'kitchen_guard_config';
 
 export const db = {
   getItems: async (): Promise<InventoryItem[]> => {
@@ -31,5 +32,16 @@ export const db = {
   deleteItem: async (id: string) => {
     const items = await db.getItems();
     await db.saveItems(items.filter(i => i.id !== id));
+  },
+
+  // Config helpers
+  getClientId: async (): Promise<string | null> => {
+    const config = await get<{ googleClientId?: string }>(CONFIG_KEY);
+    return config?.googleClientId || null;
+  },
+
+  saveClientId: async (id: string) => {
+    const config = (await get<{ googleClientId?: string }>(CONFIG_KEY)) || {};
+    await set(CONFIG_KEY, { ...config, googleClientId: id });
   }
 };
