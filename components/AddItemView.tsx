@@ -1,16 +1,17 @@
 
 import React, { useState } from 'react';
 import { db } from '../db.ts';
-import { CATEGORIES } from '../types.ts';
+import { Category } from '../types.ts';
 import { CalendarIcon, NoSymbolIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
 interface Props {
+  categories: Category[];
   onAdded: () => void;
 }
 
-const AddItemView: React.FC<Props> = ({ onAdded }) => {
+const AddItemView: React.FC<Props> = ({ categories, onAdded }) => {
   const [name, setName] = useState('');
-  const [category, setCategory] = useState(CATEGORIES[0].id);
+  const [category, setCategory] = useState(categories[0]?.id || '');
   const [qty, setQty] = useState(1);
   const [par, setPar] = useState(1);
   const [hasExpiry, setHasExpiry] = useState(true);
@@ -21,7 +22,7 @@ const AddItemView: React.FC<Props> = ({ onAdded }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return;
+    if (!name || !category) return;
 
     await db.addItem({
       id: crypto.randomUUID(),
@@ -36,7 +37,7 @@ const AddItemView: React.FC<Props> = ({ onAdded }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-12">
+    <form onSubmit={handleSubmit} className="space-y-8 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-32">
       <div className="space-y-6">
         <div>
           <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Item Name</label>
@@ -59,7 +60,7 @@ const AddItemView: React.FC<Props> = ({ onAdded }) => {
               onChange={e => setCategory(e.target.value)}
               className="w-full appearance-none bg-slate-50 border border-slate-100 p-4 rounded-3xl text-lg font-bold text-slate-900 focus:ring-2 focus:ring-slate-900/5 outline-none transition-all"
             >
-              {CATEGORIES.map(cat => (
+              {categories.map(cat => (
                 <option key={cat.id} value={cat.id}>
                   {cat.icon} {cat.name}
                 </option>
@@ -78,18 +79,18 @@ const AddItemView: React.FC<Props> = ({ onAdded }) => {
               <button 
                 type="button" 
                 onClick={() => setQty(Math.max(0, qty - 1))}
-                className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center font-bold text-slate-900"
+                className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center font-bold text-slate-900 active:scale-90 transition-transform"
               >-</button>
               <input
                 type="number"
                 value={qty}
                 onChange={e => setQty(parseInt(e.target.value) || 0)}
-                className="w-full text-center text-xl font-black bg-transparent border-none outline-none"
+                className="w-full text-center text-xl font-black bg-transparent border-none outline-none text-slate-900"
               />
               <button 
                 type="button" 
                 onClick={() => setQty(qty + 1)}
-                className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center font-bold text-slate-900"
+                className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center font-bold text-slate-900 active:scale-90 transition-transform"
               >+</button>
             </div>
           </div>
@@ -101,7 +102,7 @@ const AddItemView: React.FC<Props> = ({ onAdded }) => {
               value={par}
               min="0"
               onChange={e => setPar(parseInt(e.target.value) || 0)}
-              className="w-full text-center text-xl font-black bg-transparent border-none outline-none"
+              className="w-full text-center text-xl font-black bg-transparent border-none outline-none text-slate-900"
             />
             <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Restock Trigger</p>
           </div>
@@ -113,7 +114,7 @@ const AddItemView: React.FC<Props> = ({ onAdded }) => {
             <button
               type="button"
               onClick={() => setHasExpiry(true)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm transition-all border-2 ${
+              className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-sm transition-all border-2 ${
                 hasExpiry 
                   ? 'bg-white border-slate-900 text-slate-900 shadow-sm' 
                   : 'bg-slate-50 border-transparent text-slate-400'
@@ -125,7 +126,7 @@ const AddItemView: React.FC<Props> = ({ onAdded }) => {
             <button
               type="button"
               onClick={() => setHasExpiry(false)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm transition-all border-2 ${
+              className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-sm transition-all border-2 ${
                 !hasExpiry 
                   ? 'bg-white border-slate-900 text-slate-900 shadow-sm' 
                   : 'bg-slate-50 border-transparent text-slate-400'
@@ -141,7 +142,7 @@ const AddItemView: React.FC<Props> = ({ onAdded }) => {
               type="date"
               value={expiry}
               onChange={e => setExpiry(e.target.value)}
-              className="w-full text-lg font-bold bg-slate-50 p-4 rounded-3xl border border-slate-100 outline-none focus:ring-2 focus:ring-slate-900/5 transition-all animate-in fade-in zoom-in-95 duration-200"
+              className="w-full text-lg font-bold bg-slate-50 p-4 rounded-3xl border border-slate-100 outline-none focus:ring-2 focus:ring-slate-900/5 transition-all animate-in fade-in zoom-in-95 duration-200 text-slate-900"
             />
           )}
         </div>

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -64,16 +63,24 @@ import ReactDOM from 'react-dom/client';
 import { get, set } from 'idb-keyval';
 import { 
   Package, PlusCircle, ShoppingCart, Settings as SettingsIcon, 
-  BarChart3, Calendar, Minus, Plus, Trash2, Download, Upload, 
-  FileSpreadsheet, ShieldCheck, ChevronRight, ChevronDown, AlertCircle, Info, X,
-  ShoppingBag, CheckCircle2
+  BarChart3, Calendar, Minus, Plus, Trash2, Pencil, Download, Upload, 
+  FileSpreadsheet, ShieldCheck, ChevronRight, ChevronDown, ChevronUp, AlertCircle, Info, X,
+  ShoppingBag, CheckCircle2, Skull, Activity, SwatchBook
 } from 'lucide-react';
 
 // --- Constants ---
-const STORAGE_KEY = 'kg_stock_idb';
+const STORAGE_KEY = 'kitchen_guard_inventory_idb';
+const CATEGORY_KEY = 'kitchen_guard_categories_idb';
 const ItemStatus = { RED: 'RED', YELLOW: 'YELLOW', GREEN: 'GREEN' };
 
-const CATEGORIES = [
+const EMOJI_OPTIONS = [
+  '🥫', '🥛', '🍎', '🥩', '🧊', '🧹', '🧴', '🧼', '📦', '🥚', 
+  '🍞', '🧀', '🍗', '🐟', '🥗', '🍕', '🧁', '🍷', '🍺', '☕',
+  '🧻', '💊', '🔋', '🕯️', '🛠️', '🌱', '🐕', '🐈', '👶', '🛀',
+  '🧂', '🍳', '🥄', '🥢', '🥡', '🍫', '🥨', '🥜', '🥞'
+];
+
+const DEFAULT_CATEGORIES = [
   { id: 'pantry', name: 'Pantry', icon: '🥫' },
   { id: 'dairy', name: 'Dairy', icon: '🥛' },
   { id: 'produce', name: 'Produce', icon: '🍎' },
@@ -99,7 +106,16 @@ const db = {
   deleteItem: async (id) => {
     const items = await db.getItems();
     await db.saveItems(items.filter(i => i.id !== id));
-  }
+  },
+  getCategories: async () => {
+    const cats = await get(CATEGORY_KEY);
+    if (!cats || cats.length === 0) {
+      await set(CATEGORY_KEY, DEFAULT_CATEGORIES);
+      return DEFAULT_CATEGORIES;
+    }
+    return cats;
+  },
+  saveCategories: async (cats) => await set(CATEGORY_KEY, cats)
 };
 
 // --- Custom Modal/Toast Components ---
@@ -126,6 +142,62 @@ const ConfirmDialog = ({ isOpen, title, message, onConfirm, onCancel }) => {
             Cancel
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const EditItemModal = ({ item, categories, onClose, onSave }) => {
+  const [name, setName] = useState(item.name);
+  const [cat, setCat] = useState(item.category);
+  const [qty, setQty] = useState(item.quantity);
+  const [par, setPar] = useState(item.parLevel);
+  const [expiry, setExpiry] = useState(item.expiryDate || '');
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in p-4">
+      <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 space-y-6 overflow-y-auto max-h-[90vh]">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-black uppercase tracking-tighter italic text-slate-900">Edit Details</h3>
+          <button onClick={onClose} className="p-2 text-slate-300 hover:text-slate-900"><X size={20}/></button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+            <label className="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Item Name</label>
+            <input 
+              type="text" 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+              className="w-full bg-transparent font-bold outline-none text-lg" 
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+              <label className="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Category</label>
+              <select value={cat} onChange={e => setCat(e.target.value)} className="w-full bg-transparent font-bold outline-none text-sm appearance-none cursor-pointer">
+                {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              </select>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+              <label className="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Par Level</label>
+              <input type="number" value={par} onChange={e => setPar(parseInt(e.target.value)||0)} className="w-full bg-transparent font-bold outline-none text-sm" />
+            </div>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+            <label className="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Expiry Date</label>
+            <input type="date" value={expiry} onChange={e => setExpiry(e.target.value)} className="w-full bg-transparent font-bold outline-none text-sm" />
+          </div>
+        </div>
+
+        <button 
+          onClick={() => onSave({ name, category: cat, quantity: qty, parLevel: par, expiryDate: expiry || undefined })} 
+          className="w-full bg-slate-900 text-white py-5 rounded-3xl font-black uppercase tracking-widest text-sm shadow-xl active:scale-95 transition-transform"
+        >
+          Confirm Update
+        </button>
       </div>
     </div>
   );
@@ -159,11 +231,20 @@ const calculateStatus = (item) => {
   return item.quantity === item.parLevel ? ItemStatus.YELLOW : ItemStatus.GREEN;
 };
 
-const convertToCSV = (items) => {
+const isExpired = (item) => {
+    if (!item.expiryDate) return false;
+    return new Date(item.expiryDate).getTime() <= Date.now();
+};
+
+const isCriticalStock = (item) => {
+    return item.quantity < item.parLevel;
+};
+
+const convertToCSV = (items, categories) => {
   const headers = ['Name', 'Category', 'Quantity', 'Par Level', 'Expiry Date'];
   const rows = items.map(item => [
     `"${item.name.replace(/"/g, '""')}"`,
-    `"${CATEGORIES.find(c => c.id === item.category)?.name || item.category}"`,
+    `"${categories.find(c => c.id === item.category)?.name || item.category}"`,
     item.quantity,
     item.parLevel,
     item.expiryDate || 'N/A'
@@ -171,7 +252,7 @@ const convertToCSV = (items) => {
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 };
 
-const parseCSV = (csvText) => {
+const parseCSV = (csvText, categories) => {
   const lines = csvText.split(/\r?\n/);
   if (lines.length < 2) return [];
 
@@ -189,7 +270,7 @@ const parseCSV = (csvText) => {
     const parLevel = parseInt(parts[3]) || 0;
     const expiryDate = parts[4] === 'N/A' ? undefined : parts[4];
 
-    const category = CATEGORIES.find(c => c.name === catName)?.id || 'pantry';
+    const category = categories.find(c => c.name === catName)?.id || categories[0]?.id || 'pantry';
 
     items.push({
       id: crypto.randomUUID(),
@@ -206,14 +287,15 @@ const parseCSV = (csvText) => {
 };
 
 // --- View: Inventory ---
-const InventoryView = ({ items, onUpdate, requestConfirm }) => {
+const InventoryView = ({ items, categories, onUpdate, requestConfirm, showToast }) => {
   const [collapsed, setCollapsed] = useState({});
+  const [editingItem, setEditingItem] = useState(null);
 
   const toggleCategory = (id) => {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const groups = CATEGORIES.reduce((acc, c) => {
+  const groups = categories.reduce((acc, c) => {
     const matched = items.filter(i => i.category === c.id);
     if (matched.length) acc[c.id] = matched;
     return acc;
@@ -229,7 +311,7 @@ const InventoryView = ({ items, onUpdate, requestConfirm }) => {
   return (
     <div className="space-y-6 pb-32">
       {Object.entries(groups).map(([id, list]) => {
-        const cat = CATEGORIES.find(c => c.id === id);
+        const cat = categories.find(c => c.id === id);
         const isCollapsed = collapsed[id];
         
         return (
@@ -239,7 +321,7 @@ const InventoryView = ({ items, onUpdate, requestConfirm }) => {
               className="w-full text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 px-1 flex items-center justify-between group"
             >
               <div className="flex items-center gap-2">
-                {cat.icon} {cat.name}
+                {cat?.icon || '📦'} {cat?.name || 'Uncategorized'}
                 <span className="ml-1 bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full text-[8px] tracking-normal">{list.length}</span>
               </div>
               {isCollapsed ? <ChevronRight size={12} className="text-slate-200 group-hover:text-slate-400" /> : <ChevronDown size={12} className="text-slate-200 group-hover:text-slate-400" />}
@@ -277,14 +359,19 @@ const InventoryView = ({ items, onUpdate, requestConfirm }) => {
                           onUpdate();
                         }} className="p-2 text-slate-400 hover:text-emerald-500 transition-colors"><Plus size={14}/></button>
                       </div>
-                      <button onClick={() => { 
-                        requestConfirm("Delete Item?", `Permanently remove ${item.name}?`, async () => {
-                          await db.deleteItem(item.id); 
-                          onUpdate(); 
-                        });
-                      }} className="p-2 text-slate-200 group-hover:text-red-400 transition-colors">
-                        <Trash2 size={16}/>
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setEditingItem(item)} className="p-2 text-slate-200 hover:text-slate-900 transition-colors">
+                          <Pencil size={16}/>
+                        </button>
+                        <button onClick={() => { 
+                          requestConfirm("Delete Item?", `Permanently remove ${item.name}?`, async () => {
+                            await db.deleteItem(item.id); 
+                            onUpdate(); 
+                          });
+                        }} className="p-2 text-slate-200 group-hover:text-red-400 transition-colors">
+                          <Trash2 size={16}/>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -293,21 +380,39 @@ const InventoryView = ({ items, onUpdate, requestConfirm }) => {
           </div>
         );
       })}
+
+      {editingItem && (
+        <EditItemModal 
+          item={editingItem} 
+          categories={categories}
+          onClose={() => setEditingItem(null)} 
+          onSave={async (updates) => {
+            await db.updateItem(editingItem.id, updates);
+            onUpdate();
+            setEditingItem(null);
+            showToast('Item Updated!', 'success');
+          }}
+        />
+      )}
     </div>
   );
 };
 
 // --- View: Add ---
-const AddItemView = ({ onAdded }) => {
+const AddItemView = ({ categories, onAdded }) => {
   const [name, setName] = useState('');
-  const [cat, setCat] = useState(CATEGORIES[0].id);
+  const [cat, setCat] = useState(categories[0]?.id || '');
   const [qty, setQty] = useState(1);
   const [par, setPar] = useState(1);
   const [expiry, setExpiry] = useState('');
 
+  useEffect(() => {
+    if (categories.length > 0 && !cat) setCat(categories[0].id);
+  }, [categories]);
+
   const submit = async (e) => {
     e.preventDefault();
-    if (!name) return;
+    if (!name || !cat) return;
     await db.addItem({ id: crypto.randomUUID(), name, category: cat, quantity: qty, parLevel: par, expiryDate: expiry || undefined, createdAt: Date.now() });
     onAdded();
   };
@@ -326,8 +431,8 @@ const AddItemView = ({ onAdded }) => {
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
           <label className="text-[9px] font-black uppercase text-slate-400 block mb-2 tracking-widest">Category</label>
-          <select value={cat} onChange={e => setCat(e.target.value)} className="w-full bg-transparent font-bold outline-none text-sm appearance-none">
-            {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+          <select value={cat} onChange={e => setCat(e.target.value)} className="w-full bg-transparent font-bold outline-none text-sm appearance-none cursor-pointer">
+            {categories.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
           </select>
         </div>
         <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
@@ -362,25 +467,39 @@ const ShoppingListView = ({ items, onUpdate, showToast }) => {
   const [checked, setChecked] = useState(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Derive list
-  const shoppingList = useMemo(() => {
-    return items.filter(i => {
-      const s = calculateStatus(i);
-      return s === ItemStatus.RED || s === ItemStatus.YELLOW;
-    }).sort((a, b) => {
-      const sA = calculateStatus(a);
-      const sB = calculateStatus(b);
-      return sA === ItemStatus.RED ? -1 : 1;
+  const { expiredItems, criticalStockItems, lowStockItems } = useMemo(() => {
+    const expired = [];
+    const critical = [];
+    const low = [];
+
+    items.forEach(item => {
+        const status = calculateStatus(item);
+        if (isExpired(item)) {
+            expired.push(item);
+        } else if (isCriticalStock(item)) {
+            critical.push(item);
+        } else if (status === ItemStatus.YELLOW) {
+            low.push(item);
+        }
     });
+
+    return { 
+        expiredItems: expired.sort((a,b) => a.name.localeCompare(b.name)), 
+        criticalStockItems: critical.sort((a,b) => a.name.localeCompare(b.name)), 
+        lowStockItems: low.sort((a,b) => a.name.localeCompare(b.name)) 
+    };
   }, [items]);
 
-  // Initial auto-selection of Alerts (RED items)
+  const totalBuyItems = expiredItems.length + criticalStockItems.length + lowStockItems.length;
+
   useEffect(() => {
-    const alerts = shoppingList.filter(i => calculateStatus(i) === ItemStatus.RED);
-    if (alerts.length > 0 && checked.size === 0) {
-      setChecked(new Set(alerts.map(i => i.id)));
+    if (checked.size === 0) {
+        const autoChecked = new Set();
+        expiredItems.forEach(i => autoChecked.add(i.id));
+        criticalStockItems.forEach(i => autoChecked.add(i.id));
+        if (autoChecked.size > 0) setChecked(autoChecked);
     }
-  }, [shoppingList]);
+  }, [expiredItems, criticalStockItems]);
 
   const toggleCheck = (id) => {
     const next = new Set(checked);
@@ -392,14 +511,13 @@ const ShoppingListView = ({ items, onUpdate, showToast }) => {
     if (checked.size === 0) return;
     setIsProcessing(true);
     try {
-      // Perform atomic batch update to prevent race conditions
       const currentItems = await db.getItems();
       const updatedItems = currentItems.map(item => {
         if (checked.has(item.id)) {
           return {
             ...item,
             quantity: Math.max(item.quantity, item.parLevel) + 1,
-            expiryDate: undefined, // Clear old expiry on restock as we have new batch
+            expiryDate: undefined,
             lastModified: Date.now()
           };
         }
@@ -417,20 +535,20 @@ const ShoppingListView = ({ items, onUpdate, showToast }) => {
     }
   };
 
-  if (shoppingList.length === 0) return (
+  if (totalBuyItems === 0) return (
     <div className="h-[60vh] flex flex-col items-center justify-center text-center opacity-30 animate-in">
       <CheckCircle2 className="w-16 h-16 mb-4 text-emerald-500" />
       <p className="font-black uppercase text-[10px] tracking-widest">Everything Fully Stocked</p>
     </div>
   );
 
-  const alertItems = shoppingList.filter(i => calculateStatus(i) === ItemStatus.RED);
-  const lowItems = shoppingList.filter(i => calculateStatus(i) === ItemStatus.YELLOW);
-
-  const renderItem = (item) => {
+  const renderItem = (item, type) => {
     const isChecked = checked.has(item.id);
     const deficit = Math.max(1, item.parLevel - item.quantity);
-    const isAlert = calculateStatus(item) === ItemStatus.RED;
+    let label = "Low Stock";
+    let labelColor = "text-amber-500";
+    if (type === 'expired') { label = "Expired - Replace"; labelColor = "text-red-600"; }
+    else if (type === 'critical') { label = "Critical Alert"; labelColor = "text-red-400"; }
     
     return (
       <div 
@@ -444,9 +562,7 @@ const ShoppingListView = ({ items, onUpdate, showToast }) => {
         <div className="flex-1 min-w-0">
           <h4 className={`font-black uppercase tracking-tighter truncate ${isChecked ? 'line-through' : ''}`}>{item.name}</h4>
           <div className="flex items-center gap-2">
-            <p className={`text-[9px] uppercase font-bold ${isAlert ? 'text-red-500' : 'text-amber-500'}`}>
-              {isAlert ? 'Critical Alert' : 'Low Stock'}
-            </p>
+            <p className={`text-[9px] uppercase font-black ${labelColor}`}>{label}</p>
             <span className="text-slate-200">•</span>
             <p className="text-[9px] uppercase font-bold text-slate-400">Need: +{deficit}</p>
           </div>
@@ -457,30 +573,32 @@ const ShoppingListView = ({ items, onUpdate, showToast }) => {
 
   return (
     <div className="space-y-6 pt-2 pb-32 animate-in">
-      {alertItems.length > 0 && (
+      {expiredItems.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400 px-1 flex items-center gap-2">
-            🚨 Critical Alerts
-          </h3>
-          <div className="bg-white rounded-[2rem] border overflow-hidden shadow-sm">
-            {alertItems.map(renderItem)}
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-red-600 px-1 flex items-center gap-2"><Skull size={12} /> ⚠️ Expired - Replace</h3>
+          <div className="bg-white rounded-[2rem] border overflow-hidden shadow-sm border-red-100">
+            {expiredItems.map(item => renderItem(item, 'expired'))}
           </div>
         </div>
       )}
-
-      {lowItems.length > 0 && (
+      {criticalStockItems.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400 px-1 flex items-center gap-2">
-            📉 Low Stock
-          </h3>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400 px-1 flex items-center gap-2"><AlertCircle size={12} /> Critical Stock</h3>
           <div className="bg-white rounded-[2rem] border overflow-hidden shadow-sm">
-            {lowItems.map(renderItem)}
+            {criticalStockItems.map(item => renderItem(item, 'critical'))}
           </div>
         </div>
       )}
-
+      {lowStockItems.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400 px-1 flex items-center gap-2"><Activity size={12} /> Low Stock</h3>
+          <div className="bg-white rounded-[2rem] border overflow-hidden shadow-sm">
+            {lowStockItems.map(item => renderItem(item, 'low'))}
+          </div>
+        </div>
+      )}
       {checked.size > 0 && (
-        <div className="fixed bottom-24 left-6 right-6 max-w-sm mx-auto animate-in">
+        <div className="fixed bottom-24 left-6 right-6 max-sm mx-auto animate-in">
           <button 
             onClick={handleRestock} 
             disabled={isProcessing}
@@ -496,90 +614,180 @@ const ShoppingListView = ({ items, onUpdate, showToast }) => {
 };
 
 // --- View: Settings ---
-const SettingsView = ({ onRefresh, onExportCSV, requestConfirm, showToast }) => {
+const SettingsView = ({ categories, onUpdateCategories, onRefresh, onExportCSV, requestConfirm, showToast }) => {
   const fileInputRef = useRef(null);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatIcon, setNewCatIcon] = useState('📦');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(null); // 'new' or catId
+  const [isCategoryArchitectOpen, setIsCategoryArchitectOpen] = useState(false);
+
+  const addCategory = async () => {
+    if (!newCatName.trim()) return;
+    const newCat = {
+      id: newCatName.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now(),
+      name: newCatName.trim(),
+      icon: newCatIcon || '📦'
+    };
+    const updated = [...categories, newCat];
+    await db.saveCategories(updated);
+    onUpdateCategories(updated);
+    setNewCatName('');
+    setNewCatIcon('📦');
+    showToast('Category Added!', 'success');
+  };
+
+  const updateCategoryIcon = async (id, icon) => {
+    const updated = categories.map(c => c.id === id ? { ...c, icon } : c);
+    await db.saveCategories(updated);
+    onUpdateCategories(updated);
+  };
+
+  const removeCategory = async (id) => {
+    if (categories.length <= 1) {
+        showToast('Keep at least one category', 'error');
+        return;
+    }
+    requestConfirm('Delete Category?', 'This will not delete items, but they will be "Uncategorized".', async () => {
+        const updated = categories.filter(c => c.id !== id);
+        await db.saveCategories(updated);
+        onUpdateCategories(updated);
+        showToast('Category Removed', 'success');
+    });
+  };
 
   const handleImportCSV = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = async (event) => {
       const text = event.target.result;
-      const newItems = parseCSV(text);
+      const newItems = parseCSV(text, categories);
       if (newItems.length > 0) {
-        requestConfirm("Import Data?", `Found ${newItems.length} items. Merge with your existing inventory?`, async () => {
+        requestConfirm("Import Data?", `Found ${newItems.length} items. Merge?`, async () => {
           const existing = await db.getItems();
           const merged = [...existing];
           newItems.forEach(newItem => {
-            if (!merged.find(m => m.name.toLowerCase() === newItem.name.toLowerCase())) {
-              merged.push(newItem);
-            }
+            if (!merged.find(m => m.name.toLowerCase() === newItem.name.toLowerCase())) merged.push(newItem);
           });
           await db.saveItems(merged);
           onRefresh();
           showToast('Import successful!', 'success');
         });
-      } else {
-        showToast('Invalid CSV file', 'error');
-      }
+      } else showToast('Invalid CSV file', 'error');
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset input
+    e.target.value = '';
   };
 
   return (
-    <div className="space-y-6 pt-4 pb-32 animate-in">
+    <div className="space-y-6 pt-4 pb-32 animate-in relative">
+      {/* Security Info */}
       <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
         <ShieldCheck className="absolute right-[-20px] top-[-20px] w-48 h-48 opacity-10 rotate-12" />
         <h2 className="text-xl font-black uppercase tracking-widest mb-2 italic">Data Security</h2>
         <p className="text-xs text-slate-400 font-medium leading-relaxed">
-          Your inventory is saved locally on this device. **Warning:** Your data will be permanently lost if you clear your browser history/data or delete this page from your device. 
-          Use the manual backup tools below to keep your data safe.
+          Your inventory is local. Use backups to prevent data loss.
         </p>
       </div>
 
+      {/* Category Architect */}
+      <div className="bg-white p-6 rounded-[2.5rem] border shadow-sm relative">
+        <button 
+          onClick={() => setIsCategoryArchitectOpen(!isCategoryArchitectOpen)}
+          className="w-full flex justify-between items-center group mb-2"
+        >
+          <h3 className="text-xs font-black uppercase opacity-30 tracking-widest flex items-center gap-2">
+            <SwatchBook size={16}/> Category Architect
+          </h3>
+          {isCategoryArchitectOpen ? <ChevronUp size={16} className="text-slate-300 group-hover:text-slate-900" /> : <ChevronDown size={16} className="text-slate-300 group-hover:text-slate-900" />}
+        </button>
+        
+        {isCategoryArchitectOpen && (
+          <div className="animate-in mt-4">
+            <div className="space-y-3 mb-6">
+              {categories.map(cat => (
+                <div key={cat.id} className="flex items-center justify-between bg-slate-50 p-2.5 pl-3 rounded-2xl border border-slate-100 group">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setShowEmojiPicker(cat.id)}
+                      className="text-xl w-10 h-10 flex items-center justify-center bg-white rounded-xl shadow-sm border border-slate-100 active:scale-95 transition-transform"
+                    >
+                      {cat.icon}
+                    </button>
+                    <span className="font-bold text-slate-900 text-sm uppercase tracking-tight">{cat.name}</span>
+                  </div>
+                  <button onClick={() => removeCategory(cat.id)} className="p-2 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="bg-slate-50 p-4 rounded-3xl border border-dashed border-slate-200">
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowEmojiPicker('new')}
+                  className="w-12 text-center bg-white border rounded-xl py-3 text-xl shadow-sm active:scale-95 transition-transform"
+                >
+                  {newCatIcon}
+                </button>
+                <input 
+                  type="text" 
+                  value={newCatName} 
+                  onChange={e => setNewCatName(e.target.value)} 
+                  className="flex-1 bg-white border rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 outline-none" 
+                  placeholder="Category Name" 
+                  onKeyPress={(e) => e.key === 'Enter' && addCategory()}
+                />
+                <button onClick={addCategory} className="bg-slate-900 text-white p-3 rounded-xl active:scale-95 transition-transform"><Plus size={20}/></button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showEmojiPicker && (
+          <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-md flex items-center justify-center p-6 rounded-[2.5rem] animate-in">
+            <div className="bg-white w-full border border-slate-200 rounded-[2rem] p-6 shadow-2xl">
+              <div className="flex justify-between items-center mb-6">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Select Icon</span>
+                <button onClick={() => setShowEmojiPicker(null)} className="p-1.5 text-slate-300 hover:text-slate-900"><X size={24}/></button>
+              </div>
+              <div className="grid grid-cols-5 gap-3 max-h-64 overflow-y-auto no-scrollbar">
+                {EMOJI_OPTIONS.map(emoji => (
+                  <button 
+                    key={emoji}
+                    onClick={() => {
+                      if (showEmojiPicker === 'new') setNewCatIcon(emoji);
+                      else updateCategoryIcon(showEmojiPicker, emoji);
+                      setShowEmojiPicker(null);
+                    }}
+                    className="text-3xl p-3 hover:bg-slate-50 rounded-2xl transition-all active:scale-75"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Data Management */}
       <div className="bg-white p-6 rounded-[2.5rem] border shadow-sm">
         <h3 className="text-xs font-black uppercase mb-6 opacity-30 tracking-widest flex items-center gap-2">
           <FileSpreadsheet size={16}/> Data Management
         </h3>
         <div className="grid gap-3">
-          <button 
-            onClick={onExportCSV} 
-            className="w-full bg-slate-50 p-5 rounded-3xl flex items-center justify-between font-bold text-sm hover:bg-slate-100 transition-colors group"
-          >
+          <button onClick={onExportCSV} className="w-full bg-slate-50 p-5 rounded-3xl flex items-center justify-between font-bold text-sm hover:bg-slate-100 transition-colors group">
             <span className="flex items-center gap-3"><Download size={18} className="text-slate-400 group-hover:text-slate-900"/> Export Data</span>
             <span className="text-[10px] text-slate-300 uppercase tracking-widest">.CSV</span>
           </button>
-          
-          <button 
-            onClick={() => fileInputRef.current?.click()} 
-            className="w-full bg-slate-50 p-5 rounded-3xl flex items-center justify-between font-bold text-sm hover:bg-slate-100 transition-colors group"
-          >
+          <button onClick={() => fileInputRef.current?.click()} className="w-full bg-slate-50 p-5 rounded-3xl flex items-center justify-between font-bold text-sm hover:bg-slate-100 transition-colors group">
             <span className="flex items-center gap-3"><Upload size={18} className="text-slate-400 group-hover:text-slate-900"/> Import Data</span>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleImportCSV} 
-              accept=".csv" 
-              className="hidden" 
-            />
+            <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv" className="hidden" />
             <ChevronRight size={16} className="text-slate-200"/>
           </button>
         </div>
       </div>
-
-      <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] flex items-start gap-4">
-        <Info className="text-amber-500 shrink-0 mt-1" size={20}/>
-        <div className="space-y-1">
-          <h4 className="font-black text-[10px] uppercase text-amber-600 tracking-widest">Import Guide</h4>
-          <p className="text-[10px] font-medium text-amber-700/70 leading-relaxed">
-            CSV files should match the header format: "Name, Category, Quantity, Par Level, Expiry Date".
-          </p>
-        </div>
-      </div>
-
-      <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.2em] text-center pt-8">Overstock Guard v2.0.0</p>
     </div>
   );
 };
@@ -588,19 +796,20 @@ const SettingsView = ({ onRefresh, onExportCSV, requestConfirm, showToast }) => 
 const App = () => {
   const [view, setView] = useState('inventory');
   const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Custom UI notification states
   const [modal, setModal] = useState({ open: false, title: '', message: '', onConfirm: null });
   const [toast, setToast] = useState({ message: '', type: 'info', open: false });
 
-  const refresh = async () => { 
-    const data = await db.getItems(); 
-    setItems(data); 
+  const refreshData = async () => { 
+    const [itemsData, catsData] = await Promise.all([db.getItems(), db.getCategories()]);
+    setItems(itemsData); 
+    setCategories(catsData);
     setLoading(false); 
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { refreshData(); }, []);
 
   const stats = useMemo(() => items.reduce((a, i) => {
     const s = calculateStatus(i);
@@ -617,19 +826,14 @@ const App = () => {
   };
 
   const handleExportCSV = () => {
-    if (items.length === 0) {
-      showToast("Inventory is empty", 'error');
-      return;
-    }
-    const csvContent = convertToCSV(items);
+    if (items.length === 0) { showToast("Inventory is empty", 'error'); return; }
+    const csvContent = convertToCSV(items, categories);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
     link.setAttribute('download', `overstock-guard-${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
     showToast('Export successful!', 'success');
   };
 
@@ -638,7 +842,7 @@ const App = () => {
       <header className="px-6 pt-12 pb-6 bg-white border-b z-20 shadow-sm">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
-            <div className="bg-slate-900 p-2.5 rounded-xl rotate-3 shadow-lg shadow-slate-200 cursor-pointer" onClick={() => setView('inventory')}>
+            <div className="bg-slate-900 p-2.5 rounded-xl rotate-3 shadow-lg cursor-pointer" onClick={() => setView('inventory')}>
               <Package className="text-white" size={20}/>
             </div>
             <div onClick={() => setView('inventory')} className="cursor-pointer">
@@ -652,24 +856,15 @@ const App = () => {
         
         {view !== 'settings' && (
           <div className="flex gap-2">
-            <div 
-              onClick={() => setView('shopping')}
-              className={`flex-1 p-3 rounded-2xl text-center border cursor-pointer transition-all active:scale-95 ${stats.crit > 0 ? 'bg-red-50 border-red-100 hover:bg-red-100' : 'bg-slate-50 border-slate-100'}`}
-            >
+            <div onClick={() => setView('shopping')} className={`flex-1 p-3 rounded-2xl text-center border cursor-pointer transition-all ${stats.crit > 0 ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100'}`}>
               <span className={`block text-lg font-black leading-none ${stats.crit > 0 ? 'text-red-600' : 'text-slate-600'}`}>{stats.crit}</span>
               <span className={`text-[7px] font-black uppercase tracking-widest ${stats.crit > 0 ? 'text-red-400' : 'text-slate-400'}`}>Alerts</span>
             </div>
-            <div 
-              onClick={() => setView('shopping')}
-              className={`flex-1 p-3 rounded-2xl text-center border cursor-pointer transition-all active:scale-95 ${stats.low > 0 ? 'bg-amber-50 border-amber-100 hover:bg-amber-100' : 'bg-slate-50 border-slate-100'}`}
-            >
+            <div onClick={() => setView('shopping')} className={`flex-1 p-3 rounded-2xl text-center border cursor-pointer transition-all ${stats.low > 0 ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
               <span className={`block text-lg font-black leading-none ${stats.low > 0 ? 'text-amber-600' : 'text-slate-600'}`}>{stats.low}</span>
               <span className={`text-[7px] font-black uppercase tracking-widest ${stats.low > 0 ? 'text-amber-400' : 'text-slate-400'}`}>Low Stock</span>
             </div>
-            <div 
-              onClick={() => setView('inventory')}
-              className="flex-1 bg-slate-50 p-3 rounded-2xl text-center border border-slate-100 cursor-pointer hover:bg-slate-100 transition-all active:scale-95"
-            >
+            <div onClick={() => setView('inventory')} className="flex-1 bg-slate-50 p-3 rounded-2xl text-center border border-slate-100 cursor-pointer">
               <span className="block text-lg font-black text-slate-600 leading-none">{items.length}</span>
               <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest">Total</span>
             </div>
@@ -679,45 +874,25 @@ const App = () => {
 
       <main className="flex-1 overflow-y-auto px-6 pt-4 no-scrollbar">
         {loading ? (
-          <div className="h-full flex items-center justify-center opacity-10">
-            <BarChart3 size={48} className="animate-bounce"/>
-          </div>
+          <div className="h-full flex items-center justify-center opacity-10"><BarChart3 size={48} className="animate-bounce"/></div>
         ) : view === 'inventory' ? (
-          <InventoryView items={items} onUpdate={refresh} requestConfirm={requestConfirm} />
+          <InventoryView items={items} categories={categories} onUpdate={refreshData} requestConfirm={requestConfirm} showToast={showToast} />
         ) : view === 'add' ? (
-          <AddItemView onAdded={() => { refresh(); setView('inventory'); showToast('Added to stock', 'success'); }} />
+          <AddItemView categories={categories} onAdded={() => { refreshData(); setView('inventory'); showToast('Added to stock', 'success'); }} />
         ) : view === 'shopping' ? (
-          <ShoppingListView items={items} onUpdate={refresh} showToast={showToast} />
+          <ShoppingListView items={items} onUpdate={refreshData} showToast={showToast} />
         ) : view === 'settings' ? (
-          <SettingsView 
-            onRefresh={refresh}
-            onExportCSV={handleExportCSV} 
-            requestConfirm={requestConfirm}
-            showToast={showToast}
-          />
+          <SettingsView categories={categories} onUpdateCategories={setCategories} onRefresh={refreshData} onExportCSV={handleExportCSV} requestConfirm={requestConfirm} showToast={showToast} />
         ) : null}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/80 backdrop-blur-xl border-t px-8 py-6 flex justify-between items-center safe-bottom z-20">
-        <button onClick={() => setView('inventory')} className={view === 'inventory' ? 'text-slate-900 scale-110' : 'text-slate-200 transition-all'}>
-          <BarChart3 size={24}/>
-        </button>
-        <button onClick={() => setView('add')} className="bg-slate-900 text-white p-4 rounded-[1.8rem] -mt-12 shadow-2xl border-[6px] border-slate-50 hover:bg-slate-800 transition-colors active:scale-95">
-          <PlusCircle size={28}/>
-        </button>
-        <button onClick={() => setView('shopping')} className={view === 'shopping' ? 'text-slate-900 scale-110' : 'text-slate-200 transition-all'}>
-          <ShoppingCart size={24}/>
-        </button>
+        <button onClick={() => setView('inventory')} className={view === 'inventory' ? 'text-slate-900 scale-110' : 'text-slate-200'}><BarChart3 size={24}/></button>
+        <button onClick={() => setView('add')} className="bg-slate-900 text-white p-4 rounded-[1.8rem] -mt-12 shadow-2xl border-[6px] border-slate-50 active:scale-95"><PlusCircle size={28}/></button>
+        <button onClick={() => setView('shopping')} className={view === 'shopping' ? 'text-slate-900 scale-110' : 'text-slate-200'}><ShoppingCart size={24}/></button>
       </nav>
 
-      {/* Global Modals */}
-      <ConfirmDialog 
-        isOpen={modal.open} 
-        title={modal.title} 
-        message={modal.message} 
-        onConfirm={modal.onConfirm} 
-        onCancel={() => setModal({ ...modal, open: false })} 
-      />
+      <ConfirmDialog isOpen={modal.open} title={modal.title} message={modal.message} onConfirm={modal.onConfirm} onCancel={() => setModal({ ...modal, open: false })} />
       {toast.open && <Toast message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, open: false })} />}
     </div>
   );

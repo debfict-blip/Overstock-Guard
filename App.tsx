@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ViewType, InventoryItem, SyncStatus, ItemStatus } from './types.ts';
+import { ViewType, InventoryItem, SyncStatus, ItemStatus, Category } from './types.ts';
 import { db } from './db.ts';
 import { SyncService } from './services/syncService.ts';
 import { calculateStatus } from './statusUtils.ts';
@@ -22,18 +22,22 @@ import {
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ViewType>('inventory');
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(SyncStatus.DISCONNECTED);
 
-  const refreshItems = async () => {
-    const data = await db.getItems();
-    setItems(data);
+  const refreshData = async () => {
+    const [itemsData, categoriesData] = await Promise.all([
+      db.getItems(),
+      db.getCategories()
+    ]);
+    setItems(itemsData);
+    setCategories(categoriesData);
     setIsLoading(false);
   };
 
   useEffect(() => {
-    refreshItems();
-    // Initialize sync slightly delayed to allow UI to settle
+    refreshData();
     setTimeout(async () => {
       try {
         await SyncService.initialize((token) => {
@@ -52,7 +56,7 @@ const App: React.FC = () => {
     setSyncStatus(SyncStatus.SYNCING);
     try {
       await SyncService.syncWithDrive();
-      await refreshItems();
+      await refreshData();
       setSyncStatus(SyncStatus.SUCCESS);
       setTimeout(() => setSyncStatus(SyncStatus.IDLE), 3000);
     } catch (error) {
@@ -60,7 +64,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Stats for the Dashboard
   const stats = useMemo(() => {
     return items.reduce((acc, item) => {
       const status = calculateStatus(item);
@@ -81,11 +84,10 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen max-w-md mx-auto bg-slate-50 shadow-2xl overflow-hidden border-x border-slate-200">
-      {/* Header */}
       <header className="px-6 pt-12 pb-6 bg-white border-b border-slate-100 shadow-sm z-20">
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-3">
-            <div className="bg-slate-900 p-2 rounded-xl rotate-3">
+            <div className="bg-slate-900 p-2 rounded-xl rotate-3 shadow-lg shadow-slate-200">
               <ArchiveBoxIcon className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -96,14 +98,13 @@ const App: React.FC = () => {
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 mt-1">Kitchen Inventory</p>
             </div>
           </div>
-          <button onClick={() => setActiveView('settings')} className="p-2 hover:bg-slate-50 rounded-full transition-colors text-slate-400">
+          <button onClick={() => setActiveView('settings')} className={`p-2 rounded-full transition-colors ${activeView === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-50'}`}>
             <Cog6ToothIcon className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Dashboard Summary (Always visible in inventory view) */}
         {activeView === 'inventory' && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 animate-in fade-in duration-300">
             <div className="flex-1 bg-red-50 border border-red-100 p-3 rounded-2xl flex flex-col items-center">
               <span className="text-red-600 text-xl font-black">{stats.critical}</span>
               <span className="text-[8px] font-black uppercase text-red-400">Critical</span>
@@ -120,7 +121,7 @@ const App: React.FC = () => {
         )}
         
         {activeView !== 'inventory' && (
-           <div className="py-2">
+           <div className="py-2 animate-in slide-in-from-left-4 duration-300">
               <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter italic">
                 {activeView === 'add' ? 'New Item Entry' : 
                  activeView === 'shopping' ? 'Shopping List' : 'System Settings'}
@@ -129,7 +130,6 @@ const App: React.FC = () => {
         )}
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-6 pb-32 no-scrollbar">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full opacity-30">
@@ -141,10 +141,9 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/90 backdrop-blur-md border-t border-slate-100 px-10 py-6 flex justify-between items-center safe-bottom z-20">
         <button onClick={() => setActiveView('inventory')} className={`flex flex-col items-center gap-1.5 transition-all ${activeView === 'inventory' ? 'text-slate-900 scale-110' : 'text-slate-300 hover:text-slate-500'}`}>
-          <ChartBarIcon className="w-7 h-7 stroke-[2]" />
+          <ChartBarIcon className="w-7 h-7 stroke-[2.5]" />
           <span className="text-[8px] font-black uppercase tracking-widest">Stock</span>
         </button>
 
@@ -155,7 +154,7 @@ const App: React.FC = () => {
         </button>
 
         <button onClick={() => setActiveView('shopping')} className={`flex flex-col items-center gap-1.5 transition-all ${activeView === 'shopping' ? 'text-slate-900 scale-110' : 'text-slate-300 hover:text-slate-500'}`}>
-          <ShoppingCartIcon className="w-7 h-7 stroke-[2]" />
+          <ShoppingCartIcon className="w-7 h-7 stroke-[2.5]" />
           <span className="text-[8px] font-black uppercase tracking-widest">Buy</span>
         </button>
       </nav>
@@ -164,11 +163,11 @@ const App: React.FC = () => {
 
   function renderView() {
     switch (activeView) {
-      case 'inventory': return <InventoryView items={items} onUpdate={refreshItems} />;
-      case 'add': return <AddItemView onAdded={() => { refreshItems(); setActiveView('inventory'); triggerSync(); }} />;
-      case 'shopping': return <ShoppingListView items={items} onUpdate={refreshItems} />;
-      case 'settings': return <SettingsView items={items} syncStatus={syncStatus} onSync={triggerSync} onSignIn={() => SyncService.signIn()} />;
-      default: return <InventoryView items={items} onUpdate={refreshItems} />;
+      case 'inventory': return <InventoryView items={items} categories={categories} onUpdate={refreshData} />;
+      case 'add': return <AddItemView categories={categories} onAdded={() => { refreshData(); setActiveView('inventory'); triggerSync(); }} />;
+      case 'shopping': return <ShoppingListView items={items} onUpdate={refreshData} />;
+      case 'settings': return <SettingsView items={items} categories={categories} onUpdateCategories={(newCats) => { db.saveCategories(newCats); refreshData(); }} syncStatus={syncStatus} onSync={triggerSync} onSignIn={() => SyncService.signIn()} />;
+      default: return <InventoryView items={items} categories={categories} onUpdate={refreshData} />;
     }
   }
 };

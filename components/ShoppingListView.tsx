@@ -4,7 +4,7 @@ import { InventoryItem, ItemStatus } from '../types.ts';
 import { calculateStatus } from '../statusUtils.ts';
 import { db } from '../db.ts';
 import { CheckBadgeIcon, ShoppingBagIcon } from '@heroicons/react/24/solid';
-import { ArchiveBoxArrowDownIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ArchiveBoxArrowDownIcon, ExclamationTriangleIcon, BeakerIcon } from '@heroicons/react/24/outline';
 
 interface Props {
   items: InventoryItem[];
@@ -15,24 +15,51 @@ const ShoppingListView: React.FC<Props> = ({ items, onUpdate }) => {
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const shoppingList = useMemo(() => {
-    return items.filter(item => {
+  const isExpired = (item: InventoryItem) => {
+    if (!item.expiryDate) return false;
+    return new Date(item.expiryDate).getTime() <= Date.now();
+  };
+
+  const isCriticalStock = (item: InventoryItem) => {
+    return item.quantity < item.parLevel;
+  };
+
+  const { expiredItems, criticalStockItems, lowStockItems } = useMemo(() => {
+    const expired: InventoryItem[] = [];
+    const critical: InventoryItem[] = [];
+    const low: InventoryItem[] = [];
+
+    items.forEach(item => {
       const status = calculateStatus(item);
-      return status === ItemStatus.RED || status === ItemStatus.YELLOW;
-    }).sort((a, b) => {
-      const statusA = calculateStatus(a);
-      const statusB = calculateStatus(b);
-      return statusA === ItemStatus.RED ? -1 : 1;
+      if (isExpired(item)) {
+        expired.push(item);
+      } else if (isCriticalStock(item)) {
+        critical.push(item);
+      } else if (status === ItemStatus.YELLOW) {
+        low.push(item);
+      }
     });
+
+    return {
+      expiredItems: expired.sort((a, b) => a.name.localeCompare(b.name)),
+      criticalStockItems: critical.sort((a, b) => a.name.localeCompare(b.name)),
+      lowStockItems: low.sort((a, b) => a.name.localeCompare(b.name))
+    };
   }, [items]);
+
+  const totalItems = expiredItems.length + criticalStockItems.length + lowStockItems.length;
 
   // Automatically check critical alert items when they enter the shopping list
   useEffect(() => {
-    const alerts = shoppingList.filter(i => calculateStatus(i) === ItemStatus.RED);
-    if (alerts.length > 0 && checked.size === 0) {
-      setChecked(new Set(alerts.map(i => i.id)));
+    if (checked.size === 0) {
+      const autoChecked = new Set<string>();
+      expiredItems.forEach(i => autoChecked.add(i.id));
+      criticalStockItems.forEach(i => autoChecked.add(i.id));
+      if (autoChecked.size > 0) {
+        setChecked(autoChecked);
+      }
     }
-  }, [shoppingList]);
+  }, [expiredItems, criticalStockItems]);
 
   const toggleCheck = (id: string) => {
     const newChecked = new Set(checked);
@@ -46,7 +73,6 @@ const ShoppingListView: React.FC<Props> = ({ items, onUpdate }) => {
     
     setIsProcessing(true);
     try {
-      // Atomic batch update to prevent race conditions
       const currentItems = await db.getItems();
       const updatedItems = currentItems.map(item => {
         if (checked.has(item.id)) {
@@ -70,7 +96,7 @@ const ShoppingListView: React.FC<Props> = ({ items, onUpdate }) => {
     }
   };
 
-  if (shoppingList.length === 0) {
+  if (totalItems === 0) {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center text-center px-10">
         <div className="w-24 h-24 bg-emerald-50 rounded-full mb-6 flex items-center justify-center">
@@ -82,26 +108,34 @@ const ShoppingListView: React.FC<Props> = ({ items, onUpdate }) => {
     );
   }
 
-  const criticalItems = shoppingList.filter(i => calculateStatus(i) === ItemStatus.RED);
-  const lowStockItems = shoppingList.filter(i => calculateStatus(i) === ItemStatus.YELLOW);
-
   return (
     <div className="space-y-6 pt-2 pb-32">
       <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl relative overflow-hidden">
         <ArchiveBoxArrowDownIcon className="absolute right-[-10px] bottom-[-10px] w-32 h-32 opacity-10 rotate-12" />
         <h2 className="text-2xl font-black tracking-tighter uppercase mb-1">Buy List</h2>
         <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-50">
-          {criticalItems.length} Critical • {lowStockItems.length} Low
+          {expiredItems.length} Expired • {criticalStockItems.length} Critical • {lowStockItems.length} Low
         </p>
       </div>
       
-      {criticalItems.length > 0 && (
+      {expiredItems.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-red-500 px-2 flex items-center gap-2">
-            <ExclamationTriangleIcon className="w-4 h-4" /> Critical Alerts
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-red-600 px-2 flex items-center gap-2">
+             ⚠️ Expired - Replace
+          </h3>
+          <div className="bg-white rounded-[2rem] border border-red-100 divide-y divide-slate-50 overflow-hidden shadow-sm">
+            {expiredItems.map(item => renderItem(item, 'expired'))}
+          </div>
+        </div>
+      )}
+
+      {criticalStockItems.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400 px-2 flex items-center gap-2">
+            <ExclamationTriangleIcon className="w-4 h-4" /> Critical Stock
           </h3>
           <div className="bg-white rounded-[2rem] border border-slate-100 divide-y divide-slate-50 overflow-hidden shadow-sm">
-            {criticalItems.map(item => renderItem(item))}
+            {criticalStockItems.map(item => renderItem(item, 'critical'))}
           </div>
         </div>
       )}
@@ -112,7 +146,7 @@ const ShoppingListView: React.FC<Props> = ({ items, onUpdate }) => {
             Low Stock
           </h3>
           <div className="bg-white rounded-[2rem] border border-slate-100 divide-y divide-slate-50 overflow-hidden shadow-sm">
-            {lowStockItems.map(item => renderItem(item))}
+            {lowStockItems.map(item => renderItem(item, 'low'))}
           </div>
         </div>
       )}
@@ -132,10 +166,11 @@ const ShoppingListView: React.FC<Props> = ({ items, onUpdate }) => {
     </div>
   );
 
-  function renderItem(item: InventoryItem) {
+  function renderItem(item: InventoryItem, type: 'expired' | 'critical' | 'low') {
     const isChecked = checked.has(item.id);
     const deficit = Math.max(1, item.parLevel - item.quantity);
-    const isAlert = calculateStatus(item) === ItemStatus.RED;
+    const label = type === 'expired' ? 'Replace' : type === 'critical' ? 'Urgent' : 'Restock';
+    const labelColor = type === 'expired' ? 'text-red-600' : type === 'critical' ? 'text-red-400' : 'text-amber-500';
 
     return (
       <div 
@@ -154,8 +189,8 @@ const ShoppingListView: React.FC<Props> = ({ items, onUpdate }) => {
             {item.name}
           </h4>
           <div className="flex items-center gap-2">
-            <span className={`text-[9px] font-black uppercase tracking-widest ${isAlert ? 'text-red-500' : 'text-amber-500'}`}>
-              {isAlert ? 'Critical' : 'Low Stock'}
+            <span className={`text-[9px] font-black uppercase tracking-widest ${labelColor}`}>
+              {label}
             </span>
             <span className="text-slate-200">•</span>
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">

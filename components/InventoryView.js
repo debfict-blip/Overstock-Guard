@@ -3,11 +3,12 @@ import React, { useState } from 'react';
 import { CATEGORIES } from '../types.js';
 import { db } from '../db.js';
 import { calculateStatus, getStatusColor } from '../statusUtils.js';
-import { MinusIcon, PlusIcon, TrashIcon, ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/24/solid';
+import { MinusIcon, PlusIcon, TrashIcon, ChevronRightIcon, ChevronDownIcon, PencilIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { ArchiveBoxIcon, CalendarIcon } from '@heroicons/react/24/outline';
 
 const InventoryView = ({ items, onUpdate }) => {
   const [collapsed, setCollapsed] = useState({});
+  const [editingItem, setEditingItem] = useState(null);
 
   const toggleCategory = (id) => {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
@@ -98,7 +99,10 @@ const InventoryView = ({ items, onUpdate }) => {
                         <span className="w-6 text-center font-black">{item.quantity}</span>
                         <button onClick={(e) => { e.stopPropagation(); adjustQty(item.id, 1); }} className="p-2 text-slate-400 hover:text-emerald-500"><PlusIcon className="w-4 h-4" /></button>
                       </div>
-                      <button onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }} className="p-2 text-slate-200 hover:text-red-400 opacity-0 group-hover:opacity-100"><TrashIcon className="w-5 h-5" /></button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={(e) => { e.stopPropagation(); setEditingItem(item); }} className="p-2 text-slate-200 hover:text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity"><PencilIcon className="w-5 h-5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }} className="p-2 text-slate-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><TrashIcon className="w-5 h-5" /></button>
+                      </div>
                     </div>
                   );
                 })}
@@ -107,6 +111,43 @@ const InventoryView = ({ items, onUpdate }) => {
           </section>
         );
       })}
+
+      {editingItem && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-black uppercase italic">Edit Item</h3>
+              <button onClick={() => setEditingItem(null)} className="p-2 text-slate-300"><XMarkIcon size={24}/></button>
+            </div>
+            <div className="space-y-4">
+              <input type="text" value={editingItem.name} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="w-full bg-slate-50 p-4 rounded-3xl border outline-none font-bold" />
+              <select value={editingItem.category} onChange={e => setEditingItem({...editingItem, category: e.target.value})} className="w-full bg-slate-50 p-4 rounded-3xl border outline-none font-bold">
+                {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              </select>
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="bg-slate-50 p-4 rounded-3xl border">
+                    <label className="text-[9px] font-black uppercase block mb-1 opacity-40">Par Level</label>
+                    <input type="number" value={editingItem.parLevel} onChange={e => setEditingItem({...editingItem, parLevel: parseInt(e.target.value)||0})} className="w-full bg-transparent font-bold outline-none" />
+                 </div>
+                 <div className="bg-slate-50 p-4 rounded-3xl border">
+                    <label className="text-[9px] font-black uppercase block mb-1 opacity-40">Expiry</label>
+                    <input type="date" value={editingItem.expiryDate || ''} onChange={e => setEditingItem({...editingItem, expiryDate: e.target.value})} className="w-full bg-transparent font-bold outline-none text-[10px]" />
+                 </div>
+              </div>
+            </div>
+            <button 
+              onClick={async () => {
+                await db.updateItem(editingItem.id, editingItem);
+                onUpdate();
+                setEditingItem(null);
+              }}
+              className="w-full bg-slate-900 text-white py-5 rounded-3xl font-black uppercase"
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
